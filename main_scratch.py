@@ -5,22 +5,26 @@ import logging
 from deepgram import Deepgram
 import asyncio
 
-# Your Deepgram API Key
-# DEEPGRAM_API_KEY = 'YOUR_DEEPGRAM_API_KEY'
-
-# URL for the realtime streaming audio you would like to transcribe
-URL = 'http://stream.live.vc.bbcmedia.co.uk/bbc_world_service'
-
+from ConversationManager import ConversationManager
 
 logging.basicConfig(level=logging.INFO)
 
 async def main():
+
+    manager = ConversationManager()
+    conversation_manager = ConversationManager()
+    asyncio.run(conversation_manager.start_conv())
+
+
+
+
+
     logging.info("Initializing the Deepgram SDK...")
     # Initialize the Deepgram SDK
     deepgram = Deepgram(DEEPGRAM_API_KEY)
 
     # Parameters for pyaudio stream
-    CHUNK = 8000
+    CHUNK = 20000
     FORMAT = pyaudio.paInt16
     CHANNELS = 1
     RATE = 44100
