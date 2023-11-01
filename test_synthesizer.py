@@ -1,7 +1,8 @@
 import boto3
 
+boto3.setup_default_session(profile_name='Ahmad_personal_projects')
 # Initialize the Amazon Polly client
-polly_client = boto3.client('polly')
+polly_client = boto3.client('polly', region_name='us-east-2')
 
 # Text to be converted to speech
 text = "Hello, World!"
