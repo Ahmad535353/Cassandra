@@ -4,6 +4,7 @@ import pyaudio
 import logging
 import asyncio
 import openai
+import boto3
 
 class ConversationManager():
     def __init__(self) -> None:
@@ -121,7 +122,19 @@ class LLM:
 class Synthesizer:
     def __init__(self):
         # Initialize voice synthesizer SDK or API connection here if needed
-        pass
+        boto3.setup_default_session(profile_name='Ahmad_personal_projects')
+        # Initialize the Amazon Polly client
+        polly_client = boto3.client('polly', region_name='us-east-2')
+
+        # Text to be converted to speech
+        text = "Hello, World!"
+
+        # Call Amazon Polly to convert the text to speech
+        response = polly_client.synthesize_speech(
+            Text=text,
+            OutputFormat='mp3',
+            VoiceId='Joanna'
+        )
 
     def speak(self, text):
         # Convert text to speech and play it
