@@ -60,15 +60,15 @@ async def main():
     deepgramLive.registerHandler(deepgramLive.event.TRANSCRIPT_RECEIVED, lambda t: logging.info(f"Transcript received: {t}"))
 
     try:
-        while True:
-            data = stream.read(CHUNK)
-            if not data:
-                logging.warning("No data read from the microphone.")
-            else:
-                logging.debug("Captured audio data from microphone.")
-                deepgramLive.send(data)
-            logging.debug("Sent audio data to Deepgram.")
-            await asyncio.sleep(0.1)  # Give some buffer time
+        # while True:
+        data = stream.read(CHUNK)
+        if not data:
+            logging.warning("No data read from the microphone.")
+        else:
+            logging.debug("Captured audio data from microphone.")
+            deepgramLive.send(data)
+        logging.debug("Sent audio data to Deepgram.")
+        await asyncio.sleep(0.1)  # Give some buffer time
     except KeyboardInterrupt:
         # Indicate that we've finished sending data
         await deepgramLive.finish()
