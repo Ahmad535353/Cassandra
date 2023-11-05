@@ -1,3 +1,5 @@
+import audioop
+from collections import deque
 from deepgram import Deepgram
 from API_KEYS import DEEPGRAM_API_KEY, CHATGPT_API_KEY
 import pyaudio
@@ -11,38 +13,93 @@ import wave
 
 class ConversationManager():
     def __init__(self) -> None:
+        self.listener = Listener()
         self.transcriber = Transcriber()
-        self.llm = LLM()
-        self.synthesizer = Synthesizer()
+        # self.llm = LLM()
+        # self.synthesizer = Synthesizer()
     async def start_conv(self):
         try:
+            audio = await self.listener.listen()
             print("Listening... Press Ctrl+C to stop.")
-            transcripts = await self.transcriber.transcribe()
-            for transcript in transcripts:
-                response = self.llm.process(transcript)
-                self.synthesizer.speak(response)
+            transcripts = await self.transcriber.transcribe(audio)
+            # for transcript in transcripts:
+            #     response = self.llm.process(transcript)
+            #     self.synthesizer.speak(response)
         except Exception as e:
             print(f"An error occurred: {e}")
 
 
+class Listener:
+    def __init__(self):
+        # Parameters for pyaudio stream
+        self.CHUNK = 1024
+        self.FORMAT = pyaudio.paInt16
+        self.CHANNELS = 1
+        self.RATE = 44100
+        self.SILENCE_DURATION = 5  # How many seconds of silence before we consider the conversation over
+        self.silent_time = 0
+        self.silence_threshold = 200
+
+        self.audio = pyaudio.PyAudio()
+
+        self.stream = self.audio.open(format=self.FORMAT, channels=self.CHANNELS, rate=self.RATE,
+                            input=True, output=True, frames_per_buffer=self.CHUNK)
+
+        # Initialize the buffer and silence tracking
+        # self.audio_buffer = deque(maxlen=int(self.RATE / self.CHUNK * self.SILENCE_DURATION))
+        self.audio_buffer = deque()
+    async def listen(self):
+        print("Testing microphone...")
+        data = self.stream.read(self.CHUNK, exception_on_overflow=True)
+        self.silence_threshold = self.get_base_room_noise(data) * 5
+        print("Silence threshold: " + str(self.silence_threshold * 3))
+        print("Listening until silence, or Ctrl+C is pressed...")
+        while True:
+            # Read a chunk of data
+            data = self.stream.read(self.CHUNK, exception_on_overflow=True)
+            # self.stream.write(data)
+            if not data:
+                print("No data read from the microphone.")
+            else:
+                # Check for silence
+                if self.is_silent(data):
+                    self.silent_time += (self.CHUNK / self.RATE)
+                    # print (self.silent_time)
+                    if self.silent_time > 2:  # 5 seconds of silence
+                        print("Silence detected. Stopping listening.")
+                        self.audio_buffer.append(data)
+                        break
+                else:
+                    self.silent_time = 0  # Reset the silence timer
+
+            # Append data to the buffer
+            self.audio_buffer.append(data)
+        print("Recording stopped, playing back...")
+
+        for data in self.audio_buffer:
+            self.stream.write(data)
+
+        # Stop and close the playback stream
+        self.stream.stop_stream()
+        self.stream.close()
+        print("Playback finished.")
+        return b''.join(self.audio_buffer)
+    def is_silent(self, snd_data):
+        """Returns 'True' if below the 'silent' threshold"""
+        # print (audioop.rms(snd_data, 2))
+        return audioop.rms(snd_data, 2) < self.silence_threshold
+    def get_base_room_noise(self, snd_data):
+        """Returns 'True' if below the 'silent' threshold"""
+        return audioop.rms(snd_data, 2)
+        
 class Transcriber:
     def __init__(self):
         self.api_key = DEEPGRAM_API_KEY
         self.deepgram = Deepgram(self.api_key)
-        self.CHUNK = 80000
-        self.FORMAT = pyaudio.paInt16
-        self.CHANNELS = 1
         self.RATE = 44100
-        self.audio = pyaudio.PyAudio()
     
-    async def transcribe(self):
+    async def transcribe(self, data):
         transcripts = []
-        
-        stream = self.audio.open(
-            format=self.FORMAT, channels=self.CHANNELS, rate=self.RATE,
-            input=True, output=True, frames_per_buffer=self.CHUNK
-        )
-
         try:
             deepgramLive = await self.deepgram.transcription.live(
                 {
@@ -68,40 +125,15 @@ class Transcriber:
 
             deepgramLive.registerHandler(deepgramLive.event.TRANSCRIPT_RECEIVED, handle_transcript)
 
-            silent_time = 0  # Time duration for which silence has been detected
-            while True:
-                data = stream.read(self.CHUNK)
-                if not data:
-                    logging.warning("No data read from the microphone.")
-                else:
-                    # Check for silence
-                    if self.is_silent(data):
-                        silent_time += (self.CHUNK / self.RATE)
-                        if silent_time > 5:  # 5 seconds of silence
-                            logging.info("Silence detected. Stopping listening.")
-                            break
-                    else:
-                        silent_time = 0  # Reset the silence timer
-
-                    logging.debug("Captured audio data from microphone.")
-                    deepgramLive.send(data)
-                logging.debug("Sent audio data to Deepgram.")
-                await asyncio.sleep(0.1)
-
+            deepgramLive.send(data)
+            logging.debug("Sent audio data to Deepgram.")
+            await asyncio.sleep(0.1)
+            await deepgramLive.finish()
         except KeyboardInterrupt:
             await deepgramLive.finish()
-            stream.stop_stream()
-            stream.close()
-            self.audio.terminate()
-
-        await deepgramLive.finish()
+        
         print (transcripts[:-1])
         return transcripts[:-1]
-    
-    def is_silent(self, data):
-        SILENCE_THRESHOLD = 500
-        """Returns 'True' if below the 'silent' threshold"""
-        return max(data) < SILENCE_THRESHOLD
 
 class LLM:
     def __init__(self):
