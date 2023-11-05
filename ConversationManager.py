@@ -15,13 +15,17 @@ class ConversationManager():
     def __init__(self) -> None:
         self.listener = Listener()
         self.transcriber = Transcriber()
-        # self.llm = LLM()
-        # self.synthesizer = Synthesizer()
+        self.llm = LLM()
+        self.synthesizer = Synthesizer()
     async def start_conv(self):
         try:
             audio = await self.listener.listen()
             print("Listening... Press Ctrl+C to stop.")
             transcripts = await self.transcriber.transcribe(audio)
+            transcript = ' '.join(transcripts)
+            response = self.llm.process(transcript)
+            self.synthesizer.speak(response)
+
             # for transcript in transcripts:
             #     response = self.llm.process(transcript)
             #     self.synthesizer.speak(response)
