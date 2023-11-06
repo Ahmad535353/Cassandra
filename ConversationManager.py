@@ -17,20 +17,21 @@ class ConversationManager():
         self.transcriber = Transcriber()
         self.llm = LLM()
         self.synthesizer = Synthesizer()
+        self.converstaion = ''
     async def start_conv(self):
         try:
-            audio = await self.listener.listen()
-            print("Listening... Press Ctrl+C to stop.")
-            transcripts = await self.transcriber.transcribe(audio)
-            transcript = ' '.join(transcripts)
-            response = self.llm.process(transcript)
-            self.synthesizer.speak(response)
-
-            # for transcript in transcripts:
-            #     response = self.llm.process(transcript)
-            #     self.synthesizer.speak(response)
+            while True:
+                audio = await self.listener.listen()
+                print("Listening... Press Ctrl+C to stop.")
+                transcripts = await self.transcriber.transcribe(audio)
+                transcript = ' '.join(transcripts)
+                self.converstaion += transcript
+                response = self.llm.process(self.converstaion)
+                self.converstaion += response
+                self.synthesizer.speak(response)
         except Exception as e:
             print(f"An error occurred: {e}")
+            self.listener.close_stream()
 
 
 class Listener:
@@ -41,7 +42,6 @@ class Listener:
         self.CHANNELS = 1
         self.RATE = 44100
         self.SILENCE_DURATION = 5  # How many seconds of silence before we consider the conversation over
-        self.silent_time = 0
         self.silence_threshold = 200
 
         self.audio = pyaudio.PyAudio()
@@ -53,6 +53,9 @@ class Listener:
         # self.audio_buffer = deque(maxlen=int(self.RATE / self.CHUNK * self.SILENCE_DURATION))
         self.audio_buffer = deque()
     async def listen(self):
+        self.audio_buffer = deque()
+        self.silent_time = 0
+        started_speaking = False
         print("Testing microphone...")
         data = self.stream.read(self.CHUNK, exception_on_overflow=True)
         self.silence_threshold = self.get_base_room_noise(data) * 5
@@ -61,9 +64,14 @@ class Listener:
         while True:
             # Read a chunk of data
             data = self.stream.read(self.CHUNK, exception_on_overflow=True)
+            if not started_speaking:
+                if not self.is_silent(data):
+                    started_speaking = True
+                else:
+                    continue
             # self.stream.write(data)
-            if not data:
-                print("No data read from the microphone.")
+            # if not data:
+            #     print("No data read from the microphone.")
             else:
                 # Check for silence
                 if self.is_silent(data):
@@ -84,8 +92,6 @@ class Listener:
             self.stream.write(data)
 
         # Stop and close the playback stream
-        self.stream.stop_stream()
-        self.stream.close()
         print("Playback finished.")
         return b''.join(self.audio_buffer)
     def is_silent(self, snd_data):
@@ -95,6 +101,9 @@ class Listener:
     def get_base_room_noise(self, snd_data):
         """Returns 'True' if below the 'silent' threshold"""
         return audioop.rms(snd_data, 2)
+    def close_stream(self):
+        self.stream.stop_stream()
+        self.stream.close()
         
 class Transcriber:
     def __init__(self):
@@ -166,15 +175,29 @@ class Synthesizer:
         self.polly_client = boto3.client('polly', region_name='us-east-2')
 
     def speak(self, text, save_to_file=False):
+
+        ssml_text = f"<speak><prosody rate='200%'>{text}</prosody></speak>"  # 2x speed
+
         # Convert text to speech and play it
         response = self.polly_client.synthesize_speech(
-            Text=text,
+            TextType='ssml',
+            Text=ssml_text,
             OutputFormat='pcm',
             VoiceId='Joanna'
         )
 
         # Read the audio stream from the response
         audio_stream = response['AudioStream'].read()
+
+        # Assuming the sample width is 2 bytes and sample rate is 16000 Hz
+        sample_rate = 16000
+        # The PCM data from Polly is in 16-bit little-endian, so we'll use 'int16'
+        samples = np.frombuffer(audio_stream, dtype=np.int16)
+        
+        # Add silence at the end by appending zeros
+        silence_duration = 2  # 2 seconds of silence
+        silence_samples = np.zeros(int(sample_rate * silence_duration), dtype=np.int16)
+        samples_with_silence = np.concatenate((samples, silence_samples))
 
 
         if save_to_file:
@@ -192,12 +215,9 @@ class Synthesizer:
                 wav_file.writeframes(audio_stream)
                 print("Speech synthesis complete. Audio saved as 'hello_world.mp3'.")
 
-        # Assuming the sample width is 2 bytes and sample rate is 16000 Hz
-        sample_rate = 16000
-        # The PCM data from Polly is in 16-bit little-endian, so we'll use 'int16'
-        samples = np.frombuffer(audio_stream, dtype=np.int16)
+
         # Play the audio
-        sd.play(samples, sample_rate)
+        sd.play(samples_with_silence, sample_rate)
         sd.wait()
         # try:
         #     # Use a loop to wait indefinitely until you decide to stop the script.
