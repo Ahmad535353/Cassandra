@@ -1,10 +1,12 @@
 from collections import deque
 import pyaudio
 
+
 def is_silent(data):
     SILENCE_THRESHOLD = 500
     """Returns 'True' if below the 'silent' threshold"""
     return max(data) < SILENCE_THRESHOLD
+
 
 def test_mic():
     # Parameters for pyaudio stream
@@ -12,12 +14,20 @@ def test_mic():
     FORMAT = pyaudio.paInt16
     CHANNELS = 1
     RATE = 44100
-    SILENCE_DURATION = 5  # How many seconds of silence before we consider the conversation over
+    SILENCE_DURATION = (
+        5  # How many seconds of silence before we consider the conversation over
+    )
 
     audio = pyaudio.PyAudio()
 
-    stream = audio.open(format=FORMAT, channels=CHANNELS, rate=RATE,
-                        input=True, output=True, frames_per_buffer=CHUNK)
+    stream = audio.open(
+        format=FORMAT,
+        channels=CHANNELS,
+        rate=RATE,
+        input=True,
+        output=True,
+        frames_per_buffer=CHUNK,
+    )
 
     print("Testing microphone... Press Ctrl+C to stop.")
     # Initialize the buffer and silence tracking
@@ -34,7 +44,7 @@ def test_mic():
         else:
             # Check for silence
             if is_silent(data):
-                silent_time += (CHUNK / RATE)
+                silent_time += CHUNK / RATE
                 if silent_time > 5:  # 5 seconds of silence
                     print("Silence detected. Stopping listening.")
                     audio_buffer.append(data)
@@ -65,6 +75,7 @@ def test_mic():
     #     stream.stop_stream()
     #     stream.close()
     #     audio.terminate()
+
 
 if __name__ == "__main__":
     test_mic()

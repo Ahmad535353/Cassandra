@@ -7,22 +7,20 @@ import numpy as np
 import wave
 
 
-boto3.setup_default_session(profile_name='Ahmad_personal_projects')
+boto3.setup_default_session(profile_name="Ahmad_personal_projects")
 # Initialize the Amazon Polly client
-polly_client = boto3.client('polly', region_name='us-east-2')
+polly_client = boto3.client("polly", region_name="us-east-2")
 
 # Text to be converted to speech
 text = "Hello, World! This is Ahmad."
 
 # Call Amazon Polly to convert the text to speech
 response = polly_client.synthesize_speech(
-    Text=text,
-    OutputFormat='pcm',
-    VoiceId='Joanna'
+    Text=text, OutputFormat="pcm", VoiceId="Joanna"
 )
 
 # Read the audio stream from the response
-audio_stream = response['AudioStream'].read()
+audio_stream = response["AudioStream"].read()
 
 
 # Save the audio to a file
@@ -31,7 +29,7 @@ sample_width = 2  # Polly's PCM output is 16-bit
 frame_rate = 16000  # Sample rate of 16000 Hz
 num_frames = len(audio_stream) // (sample_width * num_channels)
 # Write the PCM data to a WAV file
-with wave.open('output.wav', 'wb') as wav_file:
+with wave.open("output.wav", "wb") as wav_file:
     wav_file.setnchannels(num_channels)
     wav_file.setsampwidth(sample_width)
     wav_file.setframerate(frame_rate)

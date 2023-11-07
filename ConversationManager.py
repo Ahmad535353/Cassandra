@@ -5,7 +5,6 @@ from API_KEYS import DEEPGRAM_API_KEY, CHATGPT_API_KEY
 import pyaudio
 import logging
 import asyncio
-import openai
 import boto3
 import sounddevice as sd
 import numpy as np
@@ -13,23 +12,25 @@ import wave
 
 from LLMs import GPT_LLM, LLaMA
 
-class ConversationManager():
-    def __init__(self, llm_type='gpt') -> None:
+
+class ConversationManager:
+    def __init__(self, llm_type="gpt") -> None:
         self.listener = Listener()
         self.transcriber = Transcriber()
-        if llm_type == 'gpt':
+        if llm_type == "gpt":
             self.llm = GPT_LLM()
-        if llm_type == 'llama':
+        if llm_type == "llama":
             self.llm = LLaMA()
         self.synthesizer = Synthesizer()
-        self.converstaion = ''
+        self.converstaion = ""
+
     async def start_conv(self):
         try:
             while True:
                 audio = await self.listener.listen()
                 print("Listening... Press Ctrl+C to stop.")
                 transcripts = await self.transcriber.transcribe(audio)
-                transcript = ' '.join(transcripts)
+                transcript = " ".join(transcripts)
                 self.converstaion += transcript
                 response = self.llm.inference(self.converstaion)
                 self.converstaion += response
@@ -46,17 +47,23 @@ class Listener:
         self.FORMAT = pyaudio.paInt16
         self.CHANNELS = 1
         self.RATE = 44100
-        self.SILENCE_DURATION = 5  # How many seconds of silence before we consider the conversation over
+        self.SILENCE_DURATION = (
+            5  # How many seconds of silence before we consider the conversation over
+        )
         self.silence_threshold = 200
 
         self.audio = pyaudio.PyAudio()
 
-        self.stream = self.audio.open(format=self.FORMAT, channels=self.CHANNELS, rate=self.RATE,
-                            input=True, output=True, frames_per_buffer=self.CHUNK)
-
-        # Initialize the buffer and silence tracking
-        # self.audio_buffer = deque(maxlen=int(self.RATE / self.CHUNK * self.SILENCE_DURATION))
+        self.stream = self.audio.open(
+            format=self.FORMAT,
+            channels=self.CHANNELS,
+            rate=self.RATE,
+            input=True,
+            output=True,
+            frames_per_buffer=self.CHUNK,
+        )
         self.audio_buffer = deque()
+
     async def listen(self, enable_playback=False):
         self.audio_buffer = deque()
         self.silent_time = 0
@@ -74,13 +81,10 @@ class Listener:
                     started_speaking = True
                 else:
                     continue
-            # self.stream.write(data)
-            # if not data:
-            #     print("No data read from the microphone.")
             else:
                 # Check for silence
                 if self.is_silent(data):
-                    self.silent_time += (self.CHUNK / self.RATE)
+                    self.silent_time += self.CHUNK / self.RATE
                     # print (self.silent_time)
                     if self.silent_time > 2:  # 5 seconds of silence
                         print("Silence detected. Stopping listening.")
@@ -100,24 +104,28 @@ class Listener:
             # Stop and close the playback stream
             print("Playback finished.")
 
-        return b''.join(self.audio_buffer)
+        return b"".join(self.audio_buffer)
+
     def is_silent(self, snd_data):
         """Returns 'True' if below the 'silent' threshold"""
         # print (audioop.rms(snd_data, 2))
         return audioop.rms(snd_data, 2) < self.silence_threshold
+
     def get_base_room_noise(self, snd_data):
         """Returns 'True' if below the 'silent' threshold"""
         return audioop.rms(snd_data, 2)
+
     def close_stream(self):
         self.stream.stop_stream()
         self.stream.close()
-        
+
+
 class Transcriber:
     def __init__(self):
         self.api_key = DEEPGRAM_API_KEY
         self.deepgram = Deepgram(self.api_key)
         self.RATE = 44100
-    
+
     async def transcribe(self, data):
         transcripts = []
         try:
@@ -128,22 +136,24 @@ class Transcriber:
                     "language": "en-US",
                     "model": "nova",
                     "encoding": "linear16",
-                    "sample_rate": self.RATE
+                    "sample_rate": self.RATE,
                 }
             )
 
             deepgramLive.registerHandler(
-                deepgramLive.event.CLOSE, lambda c: print(f"Connection closed with code {c}.")
+                deepgramLive.event.CLOSE,
+                lambda c: print(f"Connection closed with code {c}."),
             )
 
             def handle_transcript(t):
                 # logging.info(f"Transcript received: {t}")
-                if 'channel' in t:
-                    transcripts.append(t['channel']['alternatives'][0]['transcript'])
+                if "channel" in t:
+                    transcripts.append(t["channel"]["alternatives"][0]["transcript"])
                     # logging.info(f"handled this transcription: {t['channel']['alternatives'][0]['transcript']}")
 
-
-            deepgramLive.registerHandler(deepgramLive.event.TRANSCRIPT_RECEIVED, handle_transcript)
+            deepgramLive.registerHandler(
+                deepgramLive.event.TRANSCRIPT_RECEIVED, handle_transcript
+            )
 
             deepgramLive.send(data)
             logging.debug("Sent audio data to Deepgram.")
@@ -151,42 +161,38 @@ class Transcriber:
             await deepgramLive.finish()
         except KeyboardInterrupt:
             await deepgramLive.finish()
-        
-        print (transcripts[:-1])
+
+        print(transcripts[:-1])
         return transcripts[:-1]
+
 
 class Synthesizer:
     def __init__(self):
         # Initialize voice synthesizer SDK or API connection here if needed
-        boto3.setup_default_session(profile_name='Ahmad_personal_projects')
+        boto3.setup_default_session(profile_name="Ahmad_personal_projects")
         # Initialize the Amazon Polly client
-        self.polly_client = boto3.client('polly', region_name='us-east-2')
+        self.polly_client = boto3.client("polly", region_name="us-east-2")
 
     def speak(self, text, save_to_file=False):
-
-        ssml_text = f"<speak><prosody rate='150%'>{text}</prosody></speak>"  # 2x speed
+        ssml_text = f"<speak><prosody rate='110%'>{text}</prosody></speak>"  # 2x speed
 
         # Convert text to speech and play it
         response = self.polly_client.synthesize_speech(
-            TextType='ssml',
-            Text=ssml_text,
-            OutputFormat='pcm',
-            VoiceId='Joanna'
+            TextType="ssml", Text=ssml_text, OutputFormat="pcm", VoiceId="Joanna"
         )
 
         # Read the audio stream from the response
-        audio_stream = response['AudioStream'].read()
+        audio_stream = response["AudioStream"].read()
 
         # Assuming the sample width is 2 bytes and sample rate is 16000 Hz
         sample_rate = 16000
         # The PCM data from Polly is in 16-bit little-endian, so we'll use 'int16'
         samples = np.frombuffer(audio_stream, dtype=np.int16)
-        
+
         # Add silence at the end by appending zeros
         silence_duration = 2  # 2 seconds of silence
         silence_samples = np.zeros(int(sample_rate * silence_duration), dtype=np.int16)
         samples_with_silence = np.concatenate((samples, silence_samples))
-
 
         if save_to_file:
             # Save the audio to a file
@@ -195,7 +201,7 @@ class Synthesizer:
             frame_rate = 16000  # Sample rate of 16000 Hz
             num_frames = len(audio_stream) // (sample_width * num_channels)
             # Write the PCM data to a WAV file
-            with wave.open('output.wav', 'wb') as wav_file:
+            with wave.open("output.wav", "wb") as wav_file:
                 wav_file.setnchannels(num_channels)
                 wav_file.setsampwidth(sample_width)
                 wav_file.setframerate(frame_rate)
@@ -203,18 +209,8 @@ class Synthesizer:
                 wav_file.writeframes(audio_stream)
                 print("Speech synthesis complete. Audio saved as 'hello_world.mp3'.")
 
-
         # Play the audio
         sd.play(samples_with_silence, sample_rate)
         sd.wait()
-        # try:
-        #     # Use a loop to wait indefinitely until you decide to stop the script.
-        #     print("Playing audio... Press Ctrl+C to stop.")
-        #     while True:
-        #         sd.sleep(1000)  # Sleeps for 1000 milliseconds (1 second) at a time
-        # except KeyboardInterrupt:
-        #     print("Playback interrupted by user.")
-        # finally:
-        #     sd.stop()  # Stop any playback
 
         print("Playback has been stopped.")

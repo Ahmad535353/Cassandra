@@ -23,6 +23,18 @@ Before you begin, ensure you have met the following requirements:
 - Access to Deepgram API and OpenAI GPT API with valid credentials.
 - Amazon Web Services (AWS) account with access to Amazon Polly.
 
+install the following dependencies:
+
+```bash
+deepgram-sdk
+openai<1.0.0
+boto3
+pyaudio
+sounddevice
+numpy
+ctransformers
+```
+
 ### Installation
 
 Clone the repository and install the dependencies to set up your local development environment:
