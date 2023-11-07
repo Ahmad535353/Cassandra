@@ -11,11 +11,14 @@ import sounddevice as sd
 import numpy as np
 import wave
 
+from LLMs import GPT_LLM, LLaMA
+
 class ConversationManager():
     def __init__(self) -> None:
         self.listener = Listener()
         self.transcriber = Transcriber()
-        self.llm = LLM()
+        # self.llm = GPT_LLM()
+        self.llm = LLaMA()
         self.synthesizer = Synthesizer()
         self.converstaion = ''
     async def start_conv(self):
@@ -26,7 +29,7 @@ class ConversationManager():
                 transcripts = await self.transcriber.transcribe(audio)
                 transcript = ' '.join(transcripts)
                 self.converstaion += transcript
-                response = self.llm.process(self.converstaion)
+                response = self.llm.inference(self.converstaion)
                 self.converstaion += response
                 self.synthesizer.speak(response)
         except Exception as e:
@@ -52,7 +55,7 @@ class Listener:
         # Initialize the buffer and silence tracking
         # self.audio_buffer = deque(maxlen=int(self.RATE / self.CHUNK * self.SILENCE_DURATION))
         self.audio_buffer = deque()
-    async def listen(self):
+    async def listen(self, enable_playback=False):
         self.audio_buffer = deque()
         self.silent_time = 0
         started_speaking = False
@@ -86,13 +89,15 @@ class Listener:
 
             # Append data to the buffer
             self.audio_buffer.append(data)
-        print("Recording stopped, playing back...")
+        print("Recording stopped.")
 
-        for data in self.audio_buffer:
-            self.stream.write(data)
+        if enable_playback:
+            print("Playing back...")
+            for data in self.audio_buffer:
+                self.stream.write(data)
+            # Stop and close the playback stream
+            print("Playback finished.")
 
-        # Stop and close the playback stream
-        print("Playback finished.")
         return b''.join(self.audio_buffer)
     def is_silent(self, snd_data):
         """Returns 'True' if below the 'silent' threshold"""
@@ -148,25 +153,6 @@ class Transcriber:
         print (transcripts[:-1])
         return transcripts[:-1]
 
-class LLM:
-    def __init__(self):
-        # Initialize LLM SDK or API connection here if needed
-        openai.api_key = CHATGPT_API_KEY
-
-    def process(self, text):
-        # Process the text with LLM and return the response
-        completion = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a conversational assistant. You should asnwer every question like a real human, like a conversation. Keep the answers short."},
-            {"role": "user", "content": text}
-        ]
-        )
-        answer = completion.choices[0].message
-        print (answer['content'])
-        # response = "AI Response:" + answer  # Mock response
-        return answer['content']
-
 class Synthesizer:
     def __init__(self):
         # Initialize voice synthesizer SDK or API connection here if needed
@@ -176,7 +162,7 @@ class Synthesizer:
 
     def speak(self, text, save_to_file=False):
 
-        ssml_text = f"<speak><prosody rate='200%'>{text}</prosody></speak>"  # 2x speed
+        ssml_text = f"<speak><prosody rate='150%'>{text}</prosody></speak>"  # 2x speed
 
         # Convert text to speech and play it
         response = self.polly_client.synthesize_speech(
