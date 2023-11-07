@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 
 async def main():
 
-    conversation_manager = ConversationManager()
+    conversation_manager = ConversationManager(llm_type='gpt')
     await conversation_manager.start_conv()
 
 

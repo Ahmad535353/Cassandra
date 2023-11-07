@@ -14,11 +14,13 @@ import wave
 from LLMs import GPT_LLM, LLaMA
 
 class ConversationManager():
-    def __init__(self) -> None:
+    def __init__(self, llm_type='gpt') -> None:
         self.listener = Listener()
         self.transcriber = Transcriber()
-        # self.llm = GPT_LLM()
-        self.llm = LLaMA()
+        if llm_type == 'gpt':
+            self.llm = GPT_LLM()
+        if llm_type == 'llama':
+            self.llm = LLaMA()
         self.synthesizer = Synthesizer()
         self.converstaion = ''
     async def start_conv(self):

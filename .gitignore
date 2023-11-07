@@ -1,5 +1,6 @@
 /new_env
-/API_KEYS.py
+/API_KEYS_ME.py
 /main.py
 /__pycache__
 hello_world.mp3
+llama-2-7b-chat.Q5_K_S.gguf
