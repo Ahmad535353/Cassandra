@@ -57,7 +57,7 @@ python Cassandra_main.py
 When it's listening, ask Cassandra a question. For example:
 
 ```
-What is the meaning of life?
+Tell me about the Roman empire.
 ```
 
 ## License
