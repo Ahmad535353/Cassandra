@@ -1,6 +1,8 @@
 # Cassandra - Your Personal AI Oracle
 
-Cassandra is an advanced AI voice assistant that answers your spoken queries. Named after the prophetic figure from Greek mythology, Cassandra offers clear, insightful answers, harnessing the power of modern machine learning and voice processing technologies. From everyday inquiries to complex questions, Cassandra is engineered to assist with remarkable precision and efficiency.
+Cassandra is an advanced AI voice assistant that answers your spoken queries. Named after the prophetic figure from Greek mythology, Cassandra offers clear, insightful answers, harnessing the power of modern machine learning and voice processing technologies. From everyday inquiries to complex questions, Cassandra is engineered to assist with remarkable precision and efficiency. [^1]
+
+[^1]: In Greek mythology, Cassandra was bestowed with the gift of prophecy by Apollo. However, when she did not return his love, he placed a curse on her so that her prophecies, though true, would never be believed. Somehow like LLMs :D
 
 ## Features
 
